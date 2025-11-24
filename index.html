@@ -1,567 +1,599 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  Plus, Trash2, Clock, MapPin, Calendar, BookOpen, GraduationCap, 
+  AlertCircle, Save, LogOut, User, Lock, Edit2, Brush, Users, 
+  Bell, UserPlus, X, Sun, Moon 
+} from 'lucide-react';
 
-// --- DATA DUMMY AWAL ---
-const INITIAL_USERS = [
-  { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Administrator' },
-  { id: 2, username: 'user', password: 'user123', role: 'user', name: 'Siswa Teladan' }
-];
-
-const INITIAL_SCHEDULES = [
-  { id: 1, day: 'Senin', time: '07:00 - 08:30', subject: 'Matematika', teacher: 'Bp. Budi' },
-  { id: 2, day: 'Senin', time: '08:30 - 10:00', subject: 'Bahasa Indonesia', teacher: 'Ibu Siti' },
-  { id: 3, day: 'Selasa', time: '07:00 - 09:00', subject: 'Fisika', teacher: 'Bp. Einstein' },
-  { id: 4, day: 'Rabu', time: '10:00 - 12:00', subject: 'Olahraga', teacher: 'Bp. Rahmat' },
+// --- DATA INITIALIZATION ---
+const DEFAULT_USERS = [
+  { id: 1, username: 'admin123', password: 'admin123', name: 'Administrator', role: 'admin' },
+  { id: 2, username: 'user123', password: 'user123', name: 'Siswa', role: 'user' }
 ];
 
 const INITIAL_PICKETS = [
-  { id: 1, day: 'Senin', students: ['Ahmad', 'Budi', 'Cici'] },
-  { id: 2, day: 'Selasa', students: ['Dedi', 'Eka', 'Fani'] },
-  { id: 3, day: 'Rabu', students: ['Gina', 'Hadi', 'Indah'] },
+  { day: 'Senin', students: 'Andi, Budi, Citra' },
+  { day: 'Selasa', students: 'Dedi, Eka, Fani' },
+  { day: 'Rabu', students: 'Gita, Hadi, Indah' },
+  { day: 'Kamis', students: 'Joko, Kiki, Liana' },
+  { day: 'Jumat', students: 'Mina, Nuri, Oki' },
 ];
 
-const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
-
-// --- IKON SVG (INLINE) ---
-const Icons = {
-  Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
-  Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
-  Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
-  LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>,
-  User: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
-  Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
-  Bell: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
-  Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
-  X: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
-  BookOpen: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>,
-  Broom: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2.5 6.04h7.44c4.52 0 4.71-2.5 6.04-2.5 1.67 0 3.02-1.34 3.02-3.02a3 3 0 0 0-3-3.02z"></path></svg>,
-  Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-};
-
-// --- KOMPONEN UTAMA ---
 export default function App() {
+  // --- STATE: THEME ---
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // --- STATE: AUTH & USERS ---
   const [currentUser, setCurrentUser] = useState(null);
-  const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
-  const [pickets, setPickets] = useState(INITIAL_PICKETS);
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+
+  // --- STATE: MAIN APP ---
+  const [activeTab, setActiveTab] = useState('schedule'); 
+  const [schedules, setSchedules] = useState([]);
+  const [pickets, setPickets] = useState([]);
+  
+  // --- STATE: NOTIFICATIONS ---
   const [notifications, setNotifications] = useState([]);
+  const [showNotif, setShowNotif] = useState(false);
 
-  // Login Handler (DIPERBAIKI)
-  const handleLogin = (usernameInput, passwordInput) => {
-    // Bersihkan spasi dan ubah ke lowercase untuk username
-    const cleanUsername = usernameInput.trim().toLowerCase();
-    const cleanPassword = passwordInput.trim();
+  // --- STATE: FORMS & UI ---
+  const [formData, setFormData] = useState({
+    subject: '', day: 'Senin', startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori'
+  });
+  const [userFormData, setUserFormData] = useState({
+    username: '', password: '', name: '', role: 'user'
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [activeDay, setActiveDay] = useState('Senin'); 
+  const [showForm, setShowForm] = useState(false);
+  
+  // Edit Piket State
+  const [editingPicketDay, setEditingPicketDay] = useState(null);
+  const [picketInput, setPicketInput] = useState('');
 
-    // Cari user (username case-insensitive, password case-sensitive)
-    const user = users.find(u => 
-      u.username.toLowerCase() === cleanUsername && 
-      u.password === cleanPassword
+  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+
+  // --- EFFECTS: LOAD & SAVE DATA ---
+  
+  // 1. Load Data on Mount
+  useEffect(() => {
+    // Load Users
+    const savedUsers = localStorage.getItem('classPilotUsers');
+    if (savedUsers) setUsers(JSON.parse(savedUsers));
+    else setUsers(DEFAULT_USERS);
+
+    // Load Schedules
+    const savedSchedules = localStorage.getItem('classPilotData');
+    if (savedSchedules) setSchedules(JSON.parse(savedSchedules));
+
+    // Load Pickets
+    const savedPickets = localStorage.getItem('classPilotPickets');
+    if (savedPickets) setPickets(JSON.parse(savedPickets));
+    else setPickets(INITIAL_PICKETS);
+
+    // Load Theme
+    const savedTheme = localStorage.getItem('classPilotTheme');
+    if (savedTheme === 'dark') setIsDarkMode(true);
+
+    // Set Active Day based on real day
+    const todayIndex = new Date().getDay();
+    const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    let currentDay = dayMap[todayIndex];
+    if (currentDay === 'Sabtu' || currentDay === 'Minggu') {
+      currentDay = 'Senin';
+    }
+    setActiveDay(currentDay);
+  }, []);
+
+  // 2. Save Data on Change
+  useEffect(() => {
+    if (users.length > 0) localStorage.setItem('classPilotUsers', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    localStorage.setItem('classPilotData', JSON.stringify(schedules));
+    checkUpcomingClasses(); 
+  }, [schedules]);
+
+  useEffect(() => {
+    if (pickets.length > 0) localStorage.setItem('classPilotPickets', JSON.stringify(pickets));
+  }, [pickets]);
+
+  useEffect(() => {
+    localStorage.setItem('classPilotTheme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  // 3. Notification Logic
+  useEffect(() => {
+    const interval = setInterval(checkUpcomingClasses, 60000);
+    checkUpcomingClasses(); 
+    return () => clearInterval(interval);
+  }, [schedules]);
+
+  const checkUpcomingClasses = () => {
+    const now = new Date();
+    const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const currentDayName = dayMap[now.getDay()];
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeVal = currentHour * 60 + currentMinute;
+
+    const upcoming = schedules.filter(s => {
+      if (s.day !== currentDayName) return false;
+      const [h, m] = s.startTime.split(':').map(Number);
+      const scheduleTimeVal = h * 60 + m;
+      return scheduleTimeVal > currentTimeVal && scheduleTimeVal <= currentTimeVal + 60;
+    });
+
+    if (upcoming.length > 0) {
+      setNotifications(upcoming.map(u => ({
+        id: u.id,
+        message: `Kelas ${u.subject} akan dimulai pukul ${u.startTime} di ${u.room}`,
+        type: 'warning'
+      })));
+    } else {
+      setNotifications([]);
+    }
+  };
+
+  // --- AUTH LOGIC ---
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const foundUser = users.find(
+      u => u.username === loginForm.username && u.password === loginForm.password
     );
 
-    if (user) {
-      setCurrentUser(user);
-      addNotification(`Selamat datang kembali, ${user.name}!`);
-      return true;
+    if (foundUser) {
+      setCurrentUser(foundUser);
+      setLoginError('');
+    } else {
+      setLoginError('Username atau password salah!');
     }
-    return false;
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setLoginForm({ username: '', password: '' });
+    setActiveTab('schedule');
+    setShowForm(false);
   };
 
-  const addNotification = (message) => {
-    const newNotif = { id: Date.now(), message, time: new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}) };
-    setNotifications(prev => [newNotif, ...prev]);
-  };
-
-  const addSchedule = (sched) => {
-    setSchedules([...schedules, { ...sched, id: Date.now() }]);
-    addNotification(`Jadwal ${sched.subject} ditambahkan.`);
-  };
-
-  const deleteSchedule = (id) => {
-    setSchedules(schedules.filter(s => s.id !== id));
-    addNotification("Jadwal dihapus.");
-  };
-
-  const addUser = (newUser) => {
-    setUsers([...users, { ...newUser, id: Date.now() }]);
-    addNotification(`User ${newUser.username} ditambahkan.`);
-  };
-
-  const deleteUser = (id) => {
-    setUsers(users.filter(u => u.id !== id));
-    addNotification("User dihapus.");
-  };
-
-  if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
-  return (
-    <Dashboard 
-      user={currentUser} 
-      onLogout={handleLogout}
-      schedules={schedules}
-      onAddSchedule={addSchedule}
-      onDeleteSchedule={deleteSchedule}
-      pickets={pickets}
-      users={users}
-      onAddUser={addUser}
-      onDeleteUser={deleteUser}
-      notifications={notifications}
-      setNotifications={setNotifications}
-    />
-  );
-}
-
-// --- HALAMAN LOGIN ---
-function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = (e) => {
+  // --- SCHEDULE CRUD LOGIC ---
+  const handleScheduleSubmit = (e) => {
     e.preventDefault();
-    setError(''); // Reset error sebelum mencoba login
-    if (!onLogin(username, password)) {
-      setError('Username atau password salah! Cek kembali input Anda.');
+    if (!formData.subject || !formData.startTime) return;
+
+    if (isEditing) {
+      setSchedules(prev => prev.map(item => item.id === editId ? { ...item, ...formData } : item));
+      alert('Jadwal diperbarui!');
+    } else {
+      setSchedules(prev => [...prev, { id: Date.now(), ...formData }]);
+    }
+    
+    setFormData({ subject: '', day: formData.day, startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori' });
+    setIsEditing(false);
+    setEditId(null);
+    setShowForm(false);
+    setActiveDay(formData.day);
+  };
+
+  const handleDeleteSchedule = (id) => {
+    if (window.confirm('Hapus jadwal ini?')) setSchedules(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleEditSchedule = (item) => {
+    setFormData(item);
+    setEditId(item.id);
+    setIsEditing(true);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // --- PICKET LOGIC ---
+  const handleEditPicket = (day, currentStudents) => {
+    setEditingPicketDay(day);
+    setPicketInput(currentStudents);
+  };
+
+  const savePicket = () => {
+    setPickets(prev => prev.map(p => p.day === editingPicketDay ? { ...p, students: picketInput } : p));
+    setEditingPicketDay(null);
+  };
+
+  // --- USER MANAGEMENT LOGIC ---
+  const handleAddUser = (e) => {
+    e.preventDefault();
+    if (!userFormData.username || !userFormData.password) return;
+    
+    if (users.some(u => u.username === userFormData.username)) {
+      alert('Username sudah digunakan!');
+      return;
+    }
+
+    setUsers(prev => [...prev, { id: Date.now(), ...userFormData }]);
+    setUserFormData({ username: '', password: '', name: '', role: 'user' });
+    alert('User berhasil ditambahkan');
+  };
+
+  const handleDeleteUser = (id) => {
+    if (id === currentUser.id) {
+      alert("Tidak bisa menghapus akun sendiri!");
+      return;
+    }
+    if (window.confirm('Hapus user ini?')) setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  // --- HELPERS ---
+  const filteredSchedules = schedules
+    .filter(s => s.day === activeDay)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'Praktikum': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'Responsi': return 'bg-orange-100 text-orange-700 border-orange-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
-        <div className="text-center mb-8">
-          <div className="bg-blue-600 text-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
-            <Icons.Calendar />
-          </div>
-          <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">E-Schedule</h1>
-          <p className="text-gray-500 text-sm mt-2">Masuk untuk melihat jadwal kelas</p>
-        </div>
+  // --- THEME CLASSES HELPERS ---
+  const themeClasses = {
+    bg: isDarkMode ? 'bg-gray-900' : 'bg-gray-50',
+    text: isDarkMode ? 'text-gray-100' : 'text-gray-800',
+    card: isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100',
+    header: isDarkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white shadow-sm',
+    input: isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-400' : 'bg-white border-gray-300 focus:ring-indigo-500',
+    subText: isDarkMode ? 'text-gray-400' : 'text-gray-500',
+    heading: isDarkMode ? 'text-white' : 'text-gray-900',
+    buttonGhost: isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100',
+    tabActive: isDarkMode ? 'border-indigo-400 text-indigo-400' : 'border-indigo-600 text-indigo-600',
+    tabInactive: isDarkMode ? 'border-transparent text-gray-400 hover:text-gray-200' : 'border-transparent text-gray-500 hover:text-gray-700',
+    dayActive: isDarkMode ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-white',
+    dayInactive: isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 border-gray-700' : 'bg-white text-gray-500 hover:bg-gray-100 border-gray-200',
+  };
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
-            <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="Masukkan username"
-              autoCapitalize="none" // PENTING: Mencegah huruf kapital otomatis
-              autoCorrect="off"     // PENTING: Mencegah koreksi otomatis
-              autoComplete="username"
-            />
+  // ----------------------------------------------------------------
+  // RENDER: LOGIN PAGE
+  // ----------------------------------------------------------------
+  if (!currentUser) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 ${themeClasses.bg}`}>
+        <div className={`p-8 rounded-2xl shadow-xl w-full max-w-md border transition-colors duration-300 ${themeClasses.card}`}>
+          {/* Theme Toggle on Login Page */}
+          <div className="absolute top-4 right-4">
+             <button 
+              onClick={() => setIsDarkMode(!isDarkMode)} 
+              className={`p-2 rounded-full transition-colors ${themeClasses.buttonGhost}`}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="Masukkan password"
-            />
-          </div>
-          
-          {error && (
-            <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl border border-red-100 flex items-center animate-pulse">
-              <span className="font-bold mr-2">!</span> {error}
+
+          <div className="text-center mb-8">
+            <div className="bg-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3">
+              <Calendar className="w-8 h-8 text-white" />
             </div>
-          )}
+            <h1 className={`text-2xl font-bold ${themeClasses.heading}`}>ClassPilot Login</h1>
+            <p className={`text-sm ${themeClasses.subText}`}>E-Schedule & Picket Manager</p>
+          </div>
 
-          <button 
-            type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-blue-200"
-          >
-            Masuk Sekarang
-          </button>
-        </form>
-
-        <div className="mt-8 text-center bg-blue-50 p-4 rounded-xl border border-blue-100">
-          <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Akun Demo</p>
-          <div className="flex justify-center gap-4 text-sm text-gray-700">
-             <div className="flex flex-col">
-               <span className="font-bold">Admin</span>
-               <span className="font-mono text-xs">user: admin</span>
-               <span className="font-mono text-xs">pass: admin123</span>
-             </div>
-             <div className="w-px bg-blue-200 mx-2"></div>
-             <div className="flex flex-col">
-               <span className="font-bold">Siswa</span>
-               <span className="font-mono text-xs">user: user</span>
-               <span className="font-mono text-xs">pass: user123</span>
-             </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            {loginError && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> {loginError}
+              </div>
+            )}
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses.subText}`}>Username</label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <input type="text" value={loginForm.username} onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                  className={`w-full pl-10 p-3 border rounded-xl outline-none transition-colors ${themeClasses.input}`} placeholder="Username" />
+              </div>
+            </div>
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses.subText}`}>Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                  className={`w-full pl-10 p-3 border rounded-xl outline-none transition-colors ${themeClasses.input}`} placeholder="Password" />
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md">Masuk</button>
+          </form>
+          <div className={`mt-6 text-center text-xs p-4 rounded-lg ${isDarkMode ? 'bg-gray-900 text-gray-400' : 'bg-gray-50 text-gray-400'}`}>
+            <p><strong>Default Admin:</strong> admin123 / admin123</p>
+            <p><strong>Default User:</strong> user123 / user123</p>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-// --- DASHBOARD (Sama seperti sebelumnya dengan sedikit pembersihan) ---
-function Dashboard({ user, onLogout, schedules, onAddSchedule, onDeleteSchedule, pickets, users, onAddUser, onDeleteUser, notifications, setNotifications }) {
-  const [activeTab, setActiveTab] = useState('jadwal');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showNotif, setShowNotif] = useState(false);
-
-  const TabContent = () => {
-    switch (activeTab) {
-      case 'jadwal': return <ScheduleTab data={schedules} isAdmin={user.role === 'admin'} onAdd={onAddSchedule} onDelete={onDeleteSchedule} />;
-      case 'piket': return <PicketTab data={pickets} />;
-      case 'users': return user.role === 'admin' ? <UsersTab users={users} onAdd={onAddUser} onDelete={onDeleteUser} currentUserId={user.id} /> : null;
-      default: return null;
-    }
-  };
-
+  // ----------------------------------------------------------------
+  // RENDER: MAIN DASHBOARD
+  // ----------------------------------------------------------------
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      {/* Sidebar Desktop */}
-      <aside className="hidden md:flex w-64 flex-col bg-white border-r border-gray-200 z-10">
-        <div className="h-20 flex items-center px-8 border-b border-gray-100">
-          <div className="text-blue-600 mr-3"><Icons.Calendar /></div>
-          <span className="font-bold text-xl text-gray-800">E-Class</span>
-        </div>
-        
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <NavButton active={activeTab === 'jadwal'} onClick={() => setActiveTab('jadwal')} icon={<Icons.BookOpen />} label="Jadwal Pelajaran" />
-          <NavButton active={activeTab === 'piket'} onClick={() => setActiveTab('piket')} icon={<Icons.Broom />} label="Jadwal Piket" />
-          {user.role === 'admin' && (
-            <NavButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Icons.Users />} label="Kelola User" />
-          )}
-        </nav>
-
-        <div className="p-4 border-t border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold">
-              {user.name.charAt(0)}
+    <div className={`min-h-screen font-sans pb-20 md:pb-0 transition-colors duration-300 ${themeClasses.bg} ${themeClasses.text}`}>
+      
+      {/* HEADER */}
+      <header className={`sticky top-0 z-20 transition-colors duration-300 ${themeClasses.header}`}>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="bg-indigo-600 p-2 rounded-lg">
+              <Calendar className="w-5 h-5 text-white" />
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+            <div>
+              <h1 className={`text-lg font-bold leading-none ${themeClasses.heading}`}>ClassPilot</h1>
+              <span className={`text-xs ${themeClasses.subText}`}>{currentUser.name} ({currentUser.role})</span>
             </div>
-          </div>
-          <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 py-2 rounded-lg transition text-sm font-medium">
-            <Icons.LogOut /> Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Header Mobile & Desktop */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-8 shrink-0">
-          <div className="flex items-center md:hidden gap-3">
-             <button onClick={() => setIsMobileMenuOpen(true)} className="text-gray-600">
-               <Icons.Menu />
-             </button>
-             <span className="font-bold text-lg text-gray-800">E-Schedule</span>
           </div>
           
-          <h2 className="hidden md:block text-xl font-bold text-gray-800 capitalize">
-            {activeTab.replace('-', ' ')}
-          </h2>
-
-          <div className="relative">
-            <button onClick={() => setShowNotif(!showNotif)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-full relative transition">
-              <Icons.Bell />
-              {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>}
+          <div className="flex items-center gap-1">
+            {/* THEME TOGGLE */}
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)} 
+              className={`p-2 rounded-full ${themeClasses.buttonGhost}`}
+              title={isDarkMode ? "Ganti ke Mode Terang" : "Ganti ke Mode Gelap"}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            
-            {showNotif && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowNotif(false)}></div>
-                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black ring-opacity-5">
-                  <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                    <span className="font-bold text-gray-700 text-sm">Notifikasi</span>
-                    <button onClick={() => setNotifications([])} className="text-xs text-blue-600 hover:text-blue-800 font-medium">Hapus Semua</button>
+
+            {/* NOTIFICATION BELL */}
+            <div className="relative">
+              <button onClick={() => setShowNotif(!showNotif)} className={`p-2 rounded-full relative ${themeClasses.buttonGhost}`}>
+                <Bell className="w-5 h-5" />
+                {notifications.length > 0 && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                )}
+              </button>
+              
+              {/* Notif Dropdown */}
+              {showNotif && (
+                <div className={`absolute right-0 mt-2 w-72 rounded-xl shadow-xl border z-50 overflow-hidden ${themeClasses.card}`}>
+                  <div className={`p-3 border-b flex justify-between items-center ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-100'}`}>
+                    <h3 className={`text-sm font-bold ${themeClasses.heading}`}>Notifikasi</h3>
+                    <button onClick={() => setShowNotif(false)}><X className={`w-4 h-4 ${themeClasses.subText}`}/></button>
                   </div>
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-64 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-gray-400 text-sm">Tidak ada notifikasi</div>
+                      <div className={`p-4 text-center text-xs ${themeClasses.subText}`}>Tidak ada notifikasi baru</div>
                     ) : (
-                      notifications.map(n => (
-                        <div key={n.id} className="p-4 border-b border-gray-50 hover:bg-gray-50 transition">
-                          <p className="text-sm text-gray-800 font-medium">{n.message}</p>
-                          <p className="text-xs text-gray-400 mt-1">{n.time}</p>
+                      notifications.map((n, idx) => (
+                        <div key={idx} className={`p-3 border-b last:border-0 text-sm ${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}>
+                          <p className={`font-medium ${themeClasses.heading}`}>{n.message}</p>
+                          <span className="text-xs text-indigo-500 font-bold">Segera Dimulai</span>
                         </div>
                       ))
                     )}
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* Mobile Menu Overlay */}
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 md:hidden bg-black bg-opacity-25 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
-            <div className="absolute left-0 top-0 bottom-0 w-3/4 max-w-xs bg-white shadow-2xl p-6" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-8">
-                <span className="font-bold text-xl text-blue-600">Menu</span>
-                <button onClick={() => setIsMobileMenuOpen(false)}><Icons.X /></button>
-              </div>
-              <div className="space-y-2">
-                <NavButton active={activeTab === 'jadwal'} onClick={() => {setActiveTab('jadwal'); setIsMobileMenuOpen(false);}} icon={<Icons.BookOpen />} label="Jadwal Pelajaran" />
-                <NavButton active={activeTab === 'piket'} onClick={() => {setActiveTab('piket'); setIsMobileMenuOpen(false);}} icon={<Icons.Broom />} label="Jadwal Piket" />
-                {user.role === 'admin' && <NavButton active={activeTab === 'users'} onClick={() => {setActiveTab('users'); setIsMobileMenuOpen(false);}} icon={<Icons.Users />} label="Kelola User" />}
-              </div>
-              <div className="mt-8 pt-8 border-t border-gray-100">
-                <button onClick={onLogout} className="flex items-center gap-3 text-red-600 font-medium">
-                  <Icons.LogOut /> Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <TabContent />
-        </main>
-      </div>
-    </div>
-  );
-}
-
-function NavButton({ active, onClick, icon, label }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm ${
-        active 
-          ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-      }`}
-    >
-      <span className={active ? 'text-white' : 'text-gray-400'}>{icon}</span>
-      {label}
-    </button>
-  );
-}
-
-// --- TAB JADWAL ---
-function ScheduleTab({ data, isAdmin, onAdd, onDelete }) {
-  const [filterDay, setFilterDay] = useState('Semua');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Sorting: Senin -> Jumat
-  const sortedData = [...data].sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day));
-  const filteredData = filterDay === 'Semua' ? sortedData : sortedData.filter(d => d.day === filterDay);
-
-  return (
-    <div className="animate-in fade-in zoom-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto scrollbar-hide">
-          <button onClick={() => setFilterDay('Semua')} className={`px-4 py-2 rounded-full text-sm font-semibold transition ${filterDay === 'Semua' ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>Semua</button>
-          {DAYS.map(d => (
-            <button key={d} onClick={() => setFilterDay(d)} className={`px-4 py-2 rounded-full text-sm font-semibold transition ${filterDay === d ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
-              {d}
-            </button>
-          ))}
-        </div>
-        
-        {isAdmin && (
-          <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center gap-2 transition transform hover:scale-105">
-            <Icons.Plus /> <span>Tambah Jadwal</span>
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredData.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-gray-400 bg-white rounded-2xl border border-dashed border-gray-200">
-            Tidak ada jadwal untuk ditampilkan.
-          </div>
-        ) : (
-          filteredData.map(item => (
-            <div key={item.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group">
-              <div className="flex justify-between items-start mb-4">
-                <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide ${
-                   item.day === 'Senin' ? 'bg-red-50 text-red-600' :
-                   item.day === 'Selasa' ? 'bg-orange-50 text-orange-600' :
-                   item.day === 'Rabu' ? 'bg-yellow-50 text-yellow-600' :
-                   item.day === 'Kamis' ? 'bg-green-50 text-green-600' :
-                   'bg-blue-50 text-blue-600'
-                }`}>
-                  {item.day}
-                </span>
-                {isAdmin && (
-                  <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-500 p-1 rounded transition opacity-0 group-hover:opacity-100">
-                    <Icons.Trash2 />
-                  </button>
-                )}
-              </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">{item.subject}</h3>
-              <div className="flex items-center text-gray-500 text-sm mb-4 gap-2">
-                <Icons.Clock />
-                <span>{item.time}</span>
-              </div>
-              <div className="pt-4 border-t border-gray-50 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                  <Icons.User />
-                </div>
-                <span className="text-sm font-medium text-gray-600">{item.teacher}</span>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all">
-            <h3 className="text-xl font-bold text-gray-800 mb-6">Tambah Jadwal Baru</h3>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.target;
-              onAdd({
-                day: form.day.value,
-                subject: form.subject.value,
-                time: form.time.value,
-                teacher: form.teacher.value
-              });
-              setIsModalOpen(false);
-            }} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Hari</label>
-                <select name="day" className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
-                  {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Mata Pelajaran</label>
-                <input name="subject" required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Biologi" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Waktu</label>
-                <input name="time" required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: 08:00 - 09:30" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Guru Pengajar</label>
-                <input name="teacher" required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Ibu Rina" />
-              </div>
-              <div className="flex justify-end gap-3 mt-8">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl font-medium transition">Batal</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Simpan</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- TAB PIKET ---
-function PicketTab({ data }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in zoom-in duration-300">
-      {DAYS.map(day => {
-        const item = data.find(p => p.day === day);
-        return (
-          <div key={day} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col h-full hover:shadow-md transition">
-            <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="font-bold text-gray-800">{day}</h3>
-              <div className="text-gray-400"><Icons.Broom /></div>
-            </div>
-            <div className="p-6 flex-1">
-              {item ? (
-                <div className="flex flex-wrap gap-2">
-                  {item.students.map((student, idx) => (
-                    <span key={idx} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-50 text-blue-700">
-                      {student}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
-                  Tidak ada jadwal piket
-                </div>
               )}
             </div>
+
+            <button onClick={handleLogout} className="p-2 text-red-400 hover:bg-red-50 rounded-full" title="Logout">
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// --- TAB USERS ---
-function UsersTab({ users, onAdd, onDelete, currentUserId }) {
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 animate-in fade-in zoom-in duration-300">
-      <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
-        <h3 className="font-bold text-gray-800 text-lg">Manajemen Pengguna</h3>
-        <button onClick={() => setIsFormOpen(!isFormOpen)} className="text-sm font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition">
-          {isFormOpen ? 'Tutup Form' : '+ Tambah User'}
-        </button>
-      </div>
-
-      {isFormOpen && (
-        <div className="p-6 bg-blue-50 border-b border-blue-100 animate-in slide-in-from-top-2">
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.target;
-            onAdd({
-              name: form.name.value,
-              username: form.username.value,
-              password: form.password.value,
-              role: form.role.value
-            });
-            form.reset();
-            setIsFormOpen(false);
-          }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <input name="name" required placeholder="Nama Lengkap" className="p-3 rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <input name="username" required placeholder="Username" className="p-3 rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <input name="password" required placeholder="Password" className="p-3 rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <div className="flex gap-2">
-              <select name="role" className="p-3 rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-              <button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 shadow-md">Simpan</button>
-            </div>
-          </form>
         </div>
-      )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-              <th className="px-6 py-4">Nama</th>
-              <th className="px-6 py-4">Username</th>
-              <th className="px-6 py-4">Role</th>
-              <th className="px-6 py-4 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {users.map(u => (
-              <tr key={u.id} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-4 font-medium text-gray-800">{u.name}</td>
-                <td className="px-6 py-4 text-gray-500">{u.username}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-md text-xs font-bold ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                    {u.role.toUpperCase()}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  {u.id !== currentUserId && (
-                    <button onClick={() => onDelete(u.id)} className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition">
-                      <Icons.Trash2 />
+        {/* NAVIGATION TABS */}
+        <div className={`max-w-4xl mx-auto px-4 mt-2 flex gap-4 overflow-x-auto no-scrollbar border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+          <button onClick={() => setActiveTab('schedule')} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'schedule' ? themeClasses.tabActive : themeClasses.tabInactive}`}>
+            <BookOpen className="w-4 h-4" /> Jadwal Pelajaran
+          </button>
+          <button onClick={() => setActiveTab('picket')} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'picket' ? themeClasses.tabActive : themeClasses.tabInactive}`}>
+            <Brush className="w-4 h-4" /> Jadwal Piket
+          </button>
+          {currentUser.role === 'admin' && (
+            <button onClick={() => setActiveTab('users')} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'users' ? themeClasses.tabActive : themeClasses.tabInactive}`}>
+              <Users className="w-4 h-4" /> Kelola User
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 py-6">
+        
+        {/* === TAB 1: JADWAL PELAJARAN === */}
+        {activeTab === 'schedule' && (
+          <>
+            {/* Day Selector */}
+            <div className="flex overflow-x-auto pb-4 gap-2 mb-4 no-scrollbar">
+              {days.map(day => (
+                <button key={day} onClick={() => setActiveDay(day)}
+                  className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all border ${activeDay === day ? themeClasses.dayActive : themeClasses.dayInactive}`}>
+                  {day}
+                </button>
+              ))}
+            </div>
+
+            {/* Add Button (Admin) */}
+            {currentUser.role === 'admin' && (
+               <div className="mb-4 flex justify-end">
+                 <button onClick={() => { if(showForm && isEditing) setFormData({ subject: '', day: 'Senin', startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori' }); setShowForm(!showForm); setIsEditing(false); }} 
+                   className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow hover:bg-indigo-700 transition">
+                   <Plus className={`w-4 h-4 ${showForm ? 'rotate-45' : ''} transition`} /> {showForm ? 'Tutup Form' : 'Tambah Jadwal'}
+                 </button>
+               </div>
+            )}
+
+            {/* FORM INPUT JADWAL */}
+            {showForm && currentUser.role === 'admin' && (
+              <div className={`p-6 rounded-2xl shadow-lg border mb-6 animate-fade-in-down ${themeClasses.card}`}>
+                <form onSubmit={handleScheduleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Mata Pelajaran</label>
+                      <input type="text" value={formData.subject} onChange={(e) => setFormData({...formData, subject: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} placeholder="Contoh: Matematika" required />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Guru</label>
+                      <input type="text" value={formData.lecturer} onChange={(e) => setFormData({...formData, lecturer: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} placeholder="Nama Guru" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="col-span-2 md:col-span-1">
+                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Hari</label>
+                      <select value={formData.day} onChange={(e) => setFormData({...formData, day: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`}>{days.map(d => <option key={d} value={d} className="text-gray-900">{d}</option>)}</select>
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Mulai</label>
+                      <input type="time" value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} required />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Selesai</label>
+                      <input type="time" value={formData.endTime} onChange={(e) => setFormData({...formData, endTime: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} required />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Ruang</label>
+                      <input type="text" value={formData.room} onChange={(e) => setFormData({...formData, room: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} placeholder="R.101" />
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">{isEditing ? 'Simpan Perubahan' : 'Tambah Jadwal'}</button>
+                </form>
+              </div>
+            )}
+
+            {/* LIST JADWAL */}
+            <div className="space-y-3">
+              {filteredSchedules.length === 0 ? (
+                <div className={`text-center py-10 rounded-xl border border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-gray-200 bg-white text-gray-400'}`}>Belum ada jadwal hari ini.</div>
+              ) : (
+                filteredSchedules.map(schedule => (
+                  <div key={schedule.id} className={`p-4 rounded-xl shadow-sm border relative overflow-hidden flex gap-4 ${themeClasses.card}`}>
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTypeColor(schedule.type).replace('bg-', 'bg-').split(' ')[0]}`}></div>
+                    
+                    <div className={`flex flex-col items-center justify-center min-w-[80px] border-r pr-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <span className={`text-lg font-bold ${themeClasses.heading}`}>{schedule.startTime}</span>
+                      <span className={`text-xs ${themeClasses.subText}`}>{schedule.endTime}</span>
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded border ${getTypeColor(schedule.type)}`}>{schedule.type}</span>
+                          <h3 className={`font-bold text-lg mt-1 ${themeClasses.heading}`}>{schedule.subject}</h3>
+                        </div>
+                        {currentUser.role === 'admin' && (
+                          <div className="flex gap-1">
+                            <button onClick={() => handleEditSchedule(schedule)} className={`p-1.5 rounded-lg ${isDarkMode ? 'text-blue-400 bg-blue-900/30' : 'text-blue-500 bg-blue-50 hover:bg-blue-100'}`}><Edit2 className="w-4 h-4"/></button>
+                            <button onClick={() => handleDeleteSchedule(schedule.id)} className={`p-1.5 rounded-lg ${isDarkMode ? 'text-red-400 bg-red-900/30' : 'text-red-500 bg-red-50 hover:bg-red-100'}`}><Trash2 className="w-4 h-4"/></button>
+                          </div>
+                        )}
+                      </div>
+                      <div className={`mt-1 flex gap-3 text-sm ${themeClasses.subText}`}>
+                        {schedule.lecturer && <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3"/> {schedule.lecturer}</span>}
+                        {schedule.room && <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/> {schedule.room}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
+        {/* === TAB 2: JADWAL PIKET === */}
+        {activeTab === 'picket' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {pickets.map((picket, index) => (
+              <div key={index} className={`p-5 rounded-xl shadow-sm border ${themeClasses.card}`}>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-bold text-indigo-500 text-lg flex items-center gap-2">
+                    <Calendar className="w-4 h-4"/> {picket.day}
+                  </h3>
+                  {currentUser.role === 'admin' && editingPicketDay !== picket.day && (
+                    <button onClick={() => handleEditPicket(picket.day, picket.students)} className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400 hover:text-indigo-400' : 'text-gray-400 hover:text-indigo-600'}`}>
+                      <Edit2 className="w-3 h-3"/> Edit
                     </button>
                   )}
-                </td>
-              </tr>
+                </div>
+
+                {editingPicketDay === picket.day ? (
+                  <div className="space-y-2">
+                    <textarea 
+                      value={picketInput} 
+                      onChange={(e) => setPicketInput(e.target.value)}
+                      className={`w-full p-2 border rounded-lg text-sm outline-none ${themeClasses.input}`}
+                      rows="3"
+                    ></textarea>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setEditingPicketDay(null)} className={`px-3 py-1 text-xs ${themeClasses.subText}`}>Batal</button>
+                      <button onClick={savePicket} className="px-3 py-1 text-xs bg-indigo-600 text-white rounded">Simpan</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800 text-yellow-100' : 'bg-yellow-50 border-yellow-100 text-gray-700'}`}>
+                    <p className="text-sm leading-relaxed font-medium">
+                      {picket.students || "Belum ada data piket"}
+                    </p>
+                  </div>
+                )}
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        )}
+
+        {/* === TAB 3: KELOLA USER (ADMIN ONLY) === */}
+        {activeTab === 'users' && currentUser.role === 'admin' && (
+          <div className="space-y-6">
+            {/* Form Tambah User */}
+            <div className={`p-5 rounded-xl shadow-sm border ${themeClasses.card}`}>
+              <h3 className={`font-bold mb-4 flex items-center gap-2 ${themeClasses.heading}`}><UserPlus className="w-5 h-5 text-indigo-600"/> Tambah User Baru</h3>
+              <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" placeholder="Nama Lengkap" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`} required/>
+                <select value={userFormData.role} onChange={e => setUserFormData({...userFormData, role: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`}>
+                  <option value="user" className="text-gray-900">Siswa (User)</option>
+                  <option value="admin" className="text-gray-900">Admin</option>
+                </select>
+                <input type="text" placeholder="Username" value={userFormData.username} onChange={e => setUserFormData({...userFormData, username: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`} required/>
+                <input type="text" placeholder="Password" value={userFormData.password} onChange={e => setUserFormData({...userFormData, password: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`} required/>
+                <div className="md:col-span-2">
+                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold w-full hover:bg-indigo-700">Tambah User</button>
+                </div>
+              </form>
+            </div>
+
+            {/* List User */}
+            <div className={`rounded-xl shadow-sm border overflow-hidden ${themeClasses.card}`}>
+              <table className="w-full text-sm text-left">
+                <thead className={`uppercase font-bold text-xs ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-50 text-gray-500'}`}>
+                  <tr>
+                    <th className="p-4">Nama</th>
+                    <th className="p-4">Role</th>
+                    <th className="p-4">Username</th>
+                    <th className="p-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
+                  {users.map(user => (
+                    <tr key={user.id} className={`${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
+                      <td className={`p-4 font-medium ${themeClasses.heading}`}>{user.name}</td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className={`p-4 ${themeClasses.subText}`}>{user.username}</td>
+                      <td className="p-4 text-right">
+                        {user.id !== currentUser.id && (
+                          <button onClick={() => handleDeleteUser(user.id)} className="text-red-400 hover:text-red-600">
+                            <Trash2 className="w-4 h-4"/>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
