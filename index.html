@@ -1,599 +1,1071 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Trash2, Clock, MapPin, Calendar, BookOpen, GraduationCap, 
-  AlertCircle, Save, LogOut, User, Lock, Edit2, Brush, Users, 
-  Bell, UserPlus, X, Sun, Moon 
-} from 'lucide-react';
-
-// --- DATA INITIALIZATION ---
-const DEFAULT_USERS = [
-  { id: 1, username: 'admin123', password: 'admin123', name: 'Administrator', role: 'admin' },
-  { id: 2, username: 'user123', password: 'user123', name: 'Siswa', role: 'user' }
-];
-
-const INITIAL_PICKETS = [
-  { day: 'Senin', students: 'Andi, Budi, Citra' },
-  { day: 'Selasa', students: 'Dedi, Eka, Fani' },
-  { day: 'Rabu', students: 'Gita, Hadi, Indah' },
-  { day: 'Kamis', students: 'Joko, Kiki, Liana' },
-  { day: 'Jumat', students: 'Mina, Nuri, Oki' },
-];
-
-export default function App() {
-  // --- STATE: THEME ---
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // --- STATE: AUTH & USERS ---
-  const [currentUser, setCurrentUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState('');
-
-  // --- STATE: MAIN APP ---
-  const [activeTab, setActiveTab] = useState('schedule'); 
-  const [schedules, setSchedules] = useState([]);
-  const [pickets, setPickets] = useState([]);
-  
-  // --- STATE: NOTIFICATIONS ---
-  const [notifications, setNotifications] = useState([]);
-  const [showNotif, setShowNotif] = useState(false);
-
-  // --- STATE: FORMS & UI ---
-  const [formData, setFormData] = useState({
-    subject: '', day: 'Senin', startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori'
-  });
-  const [userFormData, setUserFormData] = useState({
-    username: '', password: '', name: '', role: 'user'
-  });
-  const [isEditing, setIsEditing] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [activeDay, setActiveDay] = useState('Senin'); 
-  const [showForm, setShowForm] = useState(false);
-  
-  // Edit Piket State
-  const [editingPicketDay, setEditingPicketDay] = useState(null);
-  const [picketInput, setPicketInput] = useState('');
-
-  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
-
-  // --- EFFECTS: LOAD & SAVE DATA ---
-  
-  // 1. Load Data on Mount
-  useEffect(() => {
-    // Load Users
-    const savedUsers = localStorage.getItem('classPilotUsers');
-    if (savedUsers) setUsers(JSON.parse(savedUsers));
-    else setUsers(DEFAULT_USERS);
-
-    // Load Schedules
-    const savedSchedules = localStorage.getItem('classPilotData');
-    if (savedSchedules) setSchedules(JSON.parse(savedSchedules));
-
-    // Load Pickets
-    const savedPickets = localStorage.getItem('classPilotPickets');
-    if (savedPickets) setPickets(JSON.parse(savedPickets));
-    else setPickets(INITIAL_PICKETS);
-
-    // Load Theme
-    const savedTheme = localStorage.getItem('classPilotTheme');
-    if (savedTheme === 'dark') setIsDarkMode(true);
-
-    // Set Active Day based on real day
-    const todayIndex = new Date().getDay();
-    const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    let currentDay = dayMap[todayIndex];
-    if (currentDay === 'Sabtu' || currentDay === 'Minggu') {
-      currentDay = 'Senin';
-    }
-    setActiveDay(currentDay);
-  }, []);
-
-  // 2. Save Data on Change
-  useEffect(() => {
-    if (users.length > 0) localStorage.setItem('classPilotUsers', JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    localStorage.setItem('classPilotData', JSON.stringify(schedules));
-    checkUpcomingClasses(); 
-  }, [schedules]);
-
-  useEffect(() => {
-    if (pickets.length > 0) localStorage.setItem('classPilotPickets', JSON.stringify(pickets));
-  }, [pickets]);
-
-  useEffect(() => {
-    localStorage.setItem('classPilotTheme', isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
-
-  // 3. Notification Logic
-  useEffect(() => {
-    const interval = setInterval(checkUpcomingClasses, 60000);
-    checkUpcomingClasses(); 
-    return () => clearInterval(interval);
-  }, [schedules]);
-
-  const checkUpcomingClasses = () => {
-    const now = new Date();
-    const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const currentDayName = dayMap[now.getDay()];
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeVal = currentHour * 60 + currentMinute;
-
-    const upcoming = schedules.filter(s => {
-      if (s.day !== currentDayName) return false;
-      const [h, m] = s.startTime.split(':').map(Number);
-      const scheduleTimeVal = h * 60 + m;
-      return scheduleTimeVal > currentTimeVal && scheduleTimeVal <= currentTimeVal + 60;
-    });
-
-    if (upcoming.length > 0) {
-      setNotifications(upcoming.map(u => ({
-        id: u.id,
-        message: `Kelas ${u.subject} akan dimulai pukul ${u.startTime} di ${u.room}`,
-        type: 'warning'
-      })));
-    } else {
-      setNotifications([]);
-    }
-  };
-
-  // --- AUTH LOGIC ---
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const foundUser = users.find(
-      u => u.username === loginForm.username && u.password === loginForm.password
-    );
-
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      setLoginError('');
-    } else {
-      setLoginError('Username atau password salah!');
-    }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setLoginForm({ username: '', password: '' });
-    setActiveTab('schedule');
-    setShowForm(false);
-  };
-
-  // --- SCHEDULE CRUD LOGIC ---
-  const handleScheduleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.subject || !formData.startTime) return;
-
-    if (isEditing) {
-      setSchedules(prev => prev.map(item => item.id === editId ? { ...item, ...formData } : item));
-      alert('Jadwal diperbarui!');
-    } else {
-      setSchedules(prev => [...prev, { id: Date.now(), ...formData }]);
-    }
-    
-    setFormData({ subject: '', day: formData.day, startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori' });
-    setIsEditing(false);
-    setEditId(null);
-    setShowForm(false);
-    setActiveDay(formData.day);
-  };
-
-  const handleDeleteSchedule = (id) => {
-    if (window.confirm('Hapus jadwal ini?')) setSchedules(prev => prev.filter(item => item.id !== id));
-  };
-
-  const handleEditSchedule = (item) => {
-    setFormData(item);
-    setEditId(item.id);
-    setIsEditing(true);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // --- PICKET LOGIC ---
-  const handleEditPicket = (day, currentStudents) => {
-    setEditingPicketDay(day);
-    setPicketInput(currentStudents);
-  };
-
-  const savePicket = () => {
-    setPickets(prev => prev.map(p => p.day === editingPicketDay ? { ...p, students: picketInput } : p));
-    setEditingPicketDay(null);
-  };
-
-  // --- USER MANAGEMENT LOGIC ---
-  const handleAddUser = (e) => {
-    e.preventDefault();
-    if (!userFormData.username || !userFormData.password) return;
-    
-    if (users.some(u => u.username === userFormData.username)) {
-      alert('Username sudah digunakan!');
-      return;
-    }
-
-    setUsers(prev => [...prev, { id: Date.now(), ...userFormData }]);
-    setUserFormData({ username: '', password: '', name: '', role: 'user' });
-    alert('User berhasil ditambahkan');
-  };
-
-  const handleDeleteUser = (id) => {
-    if (id === currentUser.id) {
-      alert("Tidak bisa menghapus akun sendiri!");
-      return;
-    }
-    if (window.confirm('Hapus user ini?')) setUsers(prev => prev.filter(u => u.id !== id));
-  };
-
-  // --- HELPERS ---
-  const filteredSchedules = schedules
-    .filter(s => s.day === activeDay)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'Praktikum': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'Responsi': return 'bg-orange-100 text-orange-700 border-orange-200';
-      default: return 'bg-blue-100 text-blue-700 border-blue-200';
-    }
-  };
-
-  // --- THEME CLASSES HELPERS ---
-  const themeClasses = {
-    bg: isDarkMode ? 'bg-gray-900' : 'bg-gray-50',
-    text: isDarkMode ? 'text-gray-100' : 'text-gray-800',
-    card: isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100',
-    header: isDarkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white shadow-sm',
-    input: isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-400' : 'bg-white border-gray-300 focus:ring-indigo-500',
-    subText: isDarkMode ? 'text-gray-400' : 'text-gray-500',
-    heading: isDarkMode ? 'text-white' : 'text-gray-900',
-    buttonGhost: isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100',
-    tabActive: isDarkMode ? 'border-indigo-400 text-indigo-400' : 'border-indigo-600 text-indigo-600',
-    tabInactive: isDarkMode ? 'border-transparent text-gray-400 hover:text-gray-200' : 'border-transparent text-gray-500 hover:text-gray-700',
-    dayActive: isDarkMode ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-white',
-    dayInactive: isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 border-gray-700' : 'bg-white text-gray-500 hover:bg-gray-100 border-gray-200',
-  };
-
-  // ----------------------------------------------------------------
-  // RENDER: LOGIN PAGE
-  // ----------------------------------------------------------------
-  if (!currentUser) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 ${themeClasses.bg}`}>
-        <div className={`p-8 rounded-2xl shadow-xl w-full max-w-md border transition-colors duration-300 ${themeClasses.card}`}>
-          {/* Theme Toggle on Login Page */}
-          <div className="absolute top-4 right-4">
-             <button 
-              onClick={() => setIsDarkMode(!isDarkMode)} 
-              className={`p-2 rounded-full transition-colors ${themeClasses.buttonGhost}`}
-            >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-          </div>
-
-          <div className="text-center mb-8">
-            <div className="bg-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3">
-              <Calendar className="w-8 h-8 text-white" />
-            </div>
-            <h1 className={`text-2xl font-bold ${themeClasses.heading}`}>ClassPilot Login</h1>
-            <p className={`text-sm ${themeClasses.subText}`}>E-Schedule & Picket Manager</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            {loginError && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" /> {loginError}
-              </div>
-            )}
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses.subText}`}>Username</label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input type="text" value={loginForm.username} onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
-                  className={`w-full pl-10 p-3 border rounded-xl outline-none transition-colors ${themeClasses.input}`} placeholder="Username" />
-              </div>
-            </div>
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses.subText}`}>Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                  className={`w-full pl-10 p-3 border rounded-xl outline-none transition-colors ${themeClasses.input}`} placeholder="Password" />
-              </div>
-            </div>
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md">Masuk</button>
-          </form>
-          <div className={`mt-6 text-center text-xs p-4 rounded-lg ${isDarkMode ? 'bg-gray-900 text-gray-400' : 'bg-gray-50 text-gray-400'}`}>
-            <p><strong>Default Admin:</strong> admin123 / admin123</p>
-            <p><strong>Default User:</strong> user123 / user123</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ----------------------------------------------------------------
-  // RENDER: MAIN DASHBOARD
-  // ----------------------------------------------------------------
-  return (
-    <div className={`min-h-screen font-sans pb-20 md:pb-0 transition-colors duration-300 ${themeClasses.bg} ${themeClasses.text}`}>
-      
-      {/* HEADER */}
-      <header className={`sticky top-0 z-20 transition-colors duration-300 ${themeClasses.header}`}>
-        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-lg">
-              <Calendar className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className={`text-lg font-bold leading-none ${themeClasses.heading}`}>ClassPilot</h1>
-              <span className={`text-xs ${themeClasses.subText}`}>{currentUser.name} ({currentUser.role})</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-1">
-            {/* THEME TOGGLE */}
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)} 
-              className={`p-2 rounded-full ${themeClasses.buttonGhost}`}
-              title={isDarkMode ? "Ganti ke Mode Terang" : "Ganti ke Mode Gelap"}
-            >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-            {/* NOTIFICATION BELL */}
-            <div className="relative">
-              <button onClick={() => setShowNotif(!showNotif)} className={`p-2 rounded-full relative ${themeClasses.buttonGhost}`}>
-                <Bell className="w-5 h-5" />
-                {notifications.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-                )}
-              </button>
-              
-              {/* Notif Dropdown */}
-              {showNotif && (
-                <div className={`absolute right-0 mt-2 w-72 rounded-xl shadow-xl border z-50 overflow-hidden ${themeClasses.card}`}>
-                  <div className={`p-3 border-b flex justify-between items-center ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-100'}`}>
-                    <h3 className={`text-sm font-bold ${themeClasses.heading}`}>Notifikasi</h3>
-                    <button onClick={() => setShowNotif(false)}><X className={`w-4 h-4 ${themeClasses.subText}`}/></button>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className={`p-4 text-center text-xs ${themeClasses.subText}`}>Tidak ada notifikasi baru</div>
-                    ) : (
-                      notifications.map((n, idx) => (
-                        <div key={idx} className={`p-3 border-b last:border-0 text-sm ${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}>
-                          <p className={`font-medium ${themeClasses.heading}`}>{n.message}</p>
-                          <span className="text-xs text-indigo-500 font-bold">Segera Dimulai</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button onClick={handleLogout} className="p-2 text-red-400 hover:bg-red-50 rounded-full" title="Logout">
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* NAVIGATION TABS */}
-        <div className={`max-w-4xl mx-auto px-4 mt-2 flex gap-4 overflow-x-auto no-scrollbar border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-          <button onClick={() => setActiveTab('schedule')} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'schedule' ? themeClasses.tabActive : themeClasses.tabInactive}`}>
-            <BookOpen className="w-4 h-4" /> Jadwal Pelajaran
-          </button>
-          <button onClick={() => setActiveTab('picket')} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'picket' ? themeClasses.tabActive : themeClasses.tabInactive}`}>
-            <Brush className="w-4 h-4" /> Jadwal Piket
-          </button>
-          {currentUser.role === 'admin' && (
-            <button onClick={() => setActiveTab('users')} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'users' ? themeClasses.tabActive : themeClasses.tabInactive}`}>
-              <Users className="w-4 h-4" /> Kelola User
-            </button>
-          )}
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        
-        {/* === TAB 1: JADWAL PELAJARAN === */}
-        {activeTab === 'schedule' && (
-          <>
-            {/* Day Selector */}
-            <div className="flex overflow-x-auto pb-4 gap-2 mb-4 no-scrollbar">
-              {days.map(day => (
-                <button key={day} onClick={() => setActiveDay(day)}
-                  className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all border ${activeDay === day ? themeClasses.dayActive : themeClasses.dayInactive}`}>
-                  {day}
-                </button>
-              ))}
-            </div>
-
-            {/* Add Button (Admin) */}
-            {currentUser.role === 'admin' && (
-               <div className="mb-4 flex justify-end">
-                 <button onClick={() => { if(showForm && isEditing) setFormData({ subject: '', day: 'Senin', startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori' }); setShowForm(!showForm); setIsEditing(false); }} 
-                   className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow hover:bg-indigo-700 transition">
-                   <Plus className={`w-4 h-4 ${showForm ? 'rotate-45' : ''} transition`} /> {showForm ? 'Tutup Form' : 'Tambah Jadwal'}
-                 </button>
-               </div>
-            )}
-
-            {/* FORM INPUT JADWAL */}
-            {showForm && currentUser.role === 'admin' && (
-              <div className={`p-6 rounded-2xl shadow-lg border mb-6 animate-fade-in-down ${themeClasses.card}`}>
-                <form onSubmit={handleScheduleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Mata Pelajaran</label>
-                      <input type="text" value={formData.subject} onChange={(e) => setFormData({...formData, subject: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} placeholder="Contoh: Matematika" required />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Guru</label>
-                      <input type="text" value={formData.lecturer} onChange={(e) => setFormData({...formData, lecturer: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} placeholder="Nama Guru" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="col-span-2 md:col-span-1">
-                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Hari</label>
-                      <select value={formData.day} onChange={(e) => setFormData({...formData, day: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`}>{days.map(d => <option key={d} value={d} className="text-gray-900">{d}</option>)}</select>
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Mulai</label>
-                      <input type="time" value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} required />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Selesai</label>
-                      <input type="time" value={formData.endTime} onChange={(e) => setFormData({...formData, endTime: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} required />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-bold uppercase mb-1 ${themeClasses.subText}`}>Ruang</label>
-                      <input type="text" value={formData.room} onChange={(e) => setFormData({...formData, room: e.target.value})} className={`w-full p-2 border rounded-lg ${themeClasses.input}`} placeholder="R.101" />
-                    </div>
-                  </div>
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">{isEditing ? 'Simpan Perubahan' : 'Tambah Jadwal'}</button>
-                </form>
-              </div>
-            )}
-
-            {/* LIST JADWAL */}
-            <div className="space-y-3">
-              {filteredSchedules.length === 0 ? (
-                <div className={`text-center py-10 rounded-xl border border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-gray-200 bg-white text-gray-400'}`}>Belum ada jadwal hari ini.</div>
-              ) : (
-                filteredSchedules.map(schedule => (
-                  <div key={schedule.id} className={`p-4 rounded-xl shadow-sm border relative overflow-hidden flex gap-4 ${themeClasses.card}`}>
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTypeColor(schedule.type).replace('bg-', 'bg-').split(' ')[0]}`}></div>
-                    
-                    <div className={`flex flex-col items-center justify-center min-w-[80px] border-r pr-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                      <span className={`text-lg font-bold ${themeClasses.heading}`}>{schedule.startTime}</span>
-                      <span className={`text-xs ${themeClasses.subText}`}>{schedule.endTime}</span>
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className={`text-[10px] px-2 py-0.5 rounded border ${getTypeColor(schedule.type)}`}>{schedule.type}</span>
-                          <h3 className={`font-bold text-lg mt-1 ${themeClasses.heading}`}>{schedule.subject}</h3>
-                        </div>
-                        {currentUser.role === 'admin' && (
-                          <div className="flex gap-1">
-                            <button onClick={() => handleEditSchedule(schedule)} className={`p-1.5 rounded-lg ${isDarkMode ? 'text-blue-400 bg-blue-900/30' : 'text-blue-500 bg-blue-50 hover:bg-blue-100'}`}><Edit2 className="w-4 h-4"/></button>
-                            <button onClick={() => handleDeleteSchedule(schedule.id)} className={`p-1.5 rounded-lg ${isDarkMode ? 'text-red-400 bg-red-900/30' : 'text-red-500 bg-red-50 hover:bg-red-100'}`}><Trash2 className="w-4 h-4"/></button>
-                          </div>
-                        )}
-                      </div>
-                      <div className={`mt-1 flex gap-3 text-sm ${themeClasses.subText}`}>
-                        {schedule.lecturer && <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3"/> {schedule.lecturer}</span>}
-                        {schedule.room && <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/> {schedule.room}</span>}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
-
-        {/* === TAB 2: JADWAL PIKET === */}
-        {activeTab === 'picket' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {pickets.map((picket, index) => (
-              <div key={index} className={`p-5 rounded-xl shadow-sm border ${themeClasses.card}`}>
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-bold text-indigo-500 text-lg flex items-center gap-2">
-                    <Calendar className="w-4 h-4"/> {picket.day}
-                  </h3>
-                  {currentUser.role === 'admin' && editingPicketDay !== picket.day && (
-                    <button onClick={() => handleEditPicket(picket.day, picket.students)} className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-gray-400 hover:text-indigo-400' : 'text-gray-400 hover:text-indigo-600'}`}>
-                      <Edit2 className="w-3 h-3"/> Edit
-                    </button>
-                  )}
-                </div>
-
-                {editingPicketDay === picket.day ? (
-                  <div className="space-y-2">
-                    <textarea 
-                      value={picketInput} 
-                      onChange={(e) => setPicketInput(e.target.value)}
-                      className={`w-full p-2 border rounded-lg text-sm outline-none ${themeClasses.input}`}
-                      rows="3"
-                    ></textarea>
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => setEditingPicketDay(null)} className={`px-3 py-1 text-xs ${themeClasses.subText}`}>Batal</button>
-                      <button onClick={savePicket} className="px-3 py-1 text-xs bg-indigo-600 text-white rounded">Simpan</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className={`p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800 text-yellow-100' : 'bg-yellow-50 border-yellow-100 text-gray-700'}`}>
-                    <p className="text-sm leading-relaxed font-medium">
-                      {picket.students || "Belum ada data piket"}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* === TAB 3: KELOLA USER (ADMIN ONLY) === */}
-        {activeTab === 'users' && currentUser.role === 'admin' && (
-          <div className="space-y-6">
-            {/* Form Tambah User */}
-            <div className={`p-5 rounded-xl shadow-sm border ${themeClasses.card}`}>
-              <h3 className={`font-bold mb-4 flex items-center gap-2 ${themeClasses.heading}`}><UserPlus className="w-5 h-5 text-indigo-600"/> Tambah User Baru</h3>
-              <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="text" placeholder="Nama Lengkap" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`} required/>
-                <select value={userFormData.role} onChange={e => setUserFormData({...userFormData, role: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`}>
-                  <option value="user" className="text-gray-900">Siswa (User)</option>
-                  <option value="admin" className="text-gray-900">Admin</option>
-                </select>
-                <input type="text" placeholder="Username" value={userFormData.username} onChange={e => setUserFormData({...userFormData, username: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`} required/>
-                <input type="text" placeholder="Password" value={userFormData.password} onChange={e => setUserFormData({...userFormData, password: e.target.value})} className={`p-2 border rounded-lg text-sm ${themeClasses.input}`} required/>
-                <div className="md:col-span-2">
-                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold w-full hover:bg-indigo-700">Tambah User</button>
-                </div>
-              </form>
-            </div>
-
-            {/* List User */}
-            <div className={`rounded-xl shadow-sm border overflow-hidden ${themeClasses.card}`}>
-              <table className="w-full text-sm text-left">
-                <thead className={`uppercase font-bold text-xs ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-50 text-gray-500'}`}>
-                  <tr>
-                    <th className="p-4">Nama</th>
-                    <th className="p-4">Role</th>
-                    <th className="p-4">Username</th>
-                    <th className="p-4 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
-                  {users.map(user => (
-                    <tr key={user.id} className={`${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
-                      <td className={`p-4 font-medium ${themeClasses.heading}`}>{user.name}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'admin' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className={`p-4 ${themeClasses.subText}`}>{user.username}</td>
-                      <td className="p-4 text-right">
-                        {user.id !== currentUser.id && (
-                          <button onClick={() => handleDeleteUser(user.id)} className="text-red-400 hover:text-red-600">
-                            <Trash2 className="w-4 h-4"/>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </main>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassPilot E-Schedule Manager</title>
+    <!-- Memuat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Mengatur konfigurasi Tailwind dan font -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Mengaktifkan dark mode melalui class 'dark'
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* CSS Tambahan untuk Icon (Lucide Icons SVG) */
+        .lucide {
+            display: inline-block;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-track, #f1f1f1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-thumb, #a8a8a8);
+            border-radius: 4px;
+        }
+        .dark {
+            --bg-track: #1f2937;
+            --bg-thumb: #4b5563;
+        }
+        /* Style for smooth transition on dark/light mode toggle */
+        body, .card, .header, input, select, textarea {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body id="appBody" class="font-sans min-h-screen">
+    <div id="appRoot">
+        <!-- Konten akan dirender di sini oleh JavaScript -->
+        <p class="text-center p-8 text-gray-500">Memuat aplikasi...</p>
     </div>
-  );
-}
+
+    <!-- Modul JavaScript Inti -->
+    <script>
+        // --- CONSTANTS ---
+        const DEFAULT_USERS = [
+            { id: 1, username: 'admin123', password: 'admin123', name: 'Administrator', role: 'admin' },
+            { id: 2, username: 'user123', password: 'user123', name: 'Siswa', role: 'user' }
+        ];
+
+        const INITIAL_PICKETS = [
+            { day: 'Senin', students: 'Andi, Budi, Citra' },
+            { day: 'Selasa', students: 'Dedi, Eka, Fani' },
+            { day: 'Rabu', students: 'Gita, Hadi, Indah' },
+            { day: 'Kamis', students: 'Joko, Kiki, Liana' },
+            { day: 'Jumat', students: 'Mina, Nuri, Oki' },
+        ];
+        
+        const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+
+        // --- GLOBAL STATE (Equivalent to React useState) ---
+        let isDarkMode = false;
+        let currentUser = null;
+        let users = [];
+        let schedules = [];
+        let pickets = [];
+        
+        let activeTab = 'schedule'; 
+        let activeDay = 'Senin';
+        let loginError = '';
+        
+        let notifications = [];
+        let showNotif = false;
+        let alertMessage = { show: false, message: '', type: 'info' };
+        let confirmModal = { show: false, message: '', onConfirm: () => {} };
+
+        let formData = {
+            subject: '', day: 'Senin', startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori'
+        };
+        let userFormData = {
+            username: '', password: '', name: '', role: 'user'
+        };
+        let isEditing = false;
+        let editId = null;
+        let showForm = false;
+        
+        let editingPicketDay = null;
+        let picketInput = '';
+        let notificationInterval = null;
+
+
+        // --- HELPER FUNCTIONS ---
+
+        /** Generates Lucide icon SVG based on the name. (A minimal implementation) */
+        const Icon = (name, classes = 'w-5 h-5', color = 'currentColor') => {
+            const icons = {
+                Plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+                Trash2: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>',
+                Clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+                MapPin: '<path d="M12 18s-4-4-4-7a4 4 0 0 1 8 0c0 3-4 7-4 7z"></path><circle cx="12" cy="10" r="2"></circle>',
+                Calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+                BookOpen: '<path d="M2 12s5 3 10 3 10-3 10-3V5s-5 3-10 3-10-3-10-3z"></path><line x1="2" y1="12" x2="2" y2="19"></line><line x1="22" y1="12" x2="22" y2="19"></line><path d="M10 12V5s5 3 10 3"></path>',
+                GraduationCap: '<path d="M22 10v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6"></path><path d="M12 18V4"></path><path d="M21 3L12 1.5L3 3V5L12 6.5L21 5V3"></path>',
+                AlertCircle: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+                Save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline>',
+                LogOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>',
+                User: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+                Lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
+                Edit2: '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>',
+                Users: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M5 17.13A4 4 0 0 1 8 14.21"></path>',
+                Bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+                UserPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line>',
+                X: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+                Sun: '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>',
+                Moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>',
+                CheckCircle: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>',
+                Ban: '<circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>',
+            };
+            const svgContent = icons[name] || '';
+            
+            return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                    class="lucide ${classes}" stroke="${color}" fill="none" 
+                    strokeLinecap="round" strokeLinejoin="round" style="width: 1em; height: 1em;">
+                    ${svgContent}
+                </svg>
+            `;
+        };
+
+        /** Maps class type to Tailwind colors */
+        const getTypeColor = (type) => {
+            switch(type) {
+                case 'Praktikum': return 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-800';
+                case 'Responsi': return 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-800';
+                default: return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-800';
+            }
+        };
+
+        // --- THEME CLASSES HELPER ---
+        const getThemeClasses = () => ({
+            bg: isDarkMode ? 'bg-gray-900' : 'bg-gray-50',
+            text: isDarkMode ? 'text-gray-100' : 'text-gray-800',
+            card: isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100',
+            header: isDarkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white shadow-sm',
+            input: isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-400' : 'bg-white border-gray-300 focus:ring-indigo-500',
+            subText: isDarkMode ? 'text-gray-400' : 'text-gray-500',
+            heading: isDarkMode ? 'text-white' : 'text-gray-900',
+            buttonGhost: isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100',
+            tabActive: isDarkMode ? 'border-indigo-400 text-indigo-400' : 'border-indigo-600 text-indigo-600',
+            tabInactive: isDarkMode ? 'border-transparent text-gray-400 hover:text-gray-200' : 'border-transparent text-gray-500 hover:text-gray-700',
+            dayActive: isDarkMode ? 'bg-indigo-600 text-white shadow-indigo-500/50' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200/50',
+            dayInactive: isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-200',
+            primaryButton: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-400',
+            dangerButton: 'bg-red-600 text-white hover:bg-red-700',
+        });
+
+        // --- STATE MANAGEMENT & PERSISTENCE ---
+
+        /** Updates global state and triggers re-render. */
+        const setState = (newState) => {
+            Object.assign(window, newState);
+            render();
+        };
+
+        /** Saves all major states to localStorage. */
+        const saveState = () => {
+            localStorage.setItem('classPilotUsers', JSON.stringify(users));
+            localStorage.setItem('classPilotData', JSON.stringify(schedules));
+            localStorage.setItem('classPilotPickets', JSON.stringify(pickets));
+            localStorage.setItem('classPilotTheme', isDarkMode ? 'dark' : 'light');
+            
+            // Re-check notifications after saving schedules
+            checkUpcomingClasses();
+        };
+
+        /** Loads all major states from localStorage. */
+        const loadState = () => {
+            // Load Users
+            const savedUsers = localStorage.getItem('classPilotUsers');
+            if (savedUsers) { users = JSON.parse(savedUsers); }
+            else { users = DEFAULT_USERS; }
+
+            // Load Schedules
+            const savedSchedules = localStorage.getItem('classPilotData');
+            if (savedSchedules) { schedules = JSON.parse(savedSchedules); }
+
+            // Load Pickets
+            const savedPickets = localStorage.getItem('classPilotPickets');
+            if (savedPickets) { pickets = JSON.parse(savedPickets); }
+            else { pickets = INITIAL_PICKETS; }
+
+            // Load Theme
+            const savedTheme = localStorage.getItem('classPilotTheme');
+            isDarkMode = savedTheme === 'dark';
+
+            // Set Active Day based on real day
+            const todayIndex = new Date().getDay();
+            const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            let currentDay = dayMap[todayIndex];
+            if (currentDay === 'Sabtu' || currentDay === 'Minggu') {
+                currentDay = 'Senin';
+            }
+            activeDay = currentDay;
+            
+            // Apply theme class immediately
+            document.getElementById('appBody').classList.toggle('dark', isDarkMode);
+            
+            // Setup notification check interval
+            if (notificationInterval) clearInterval(notificationInterval);
+            notificationInterval = setInterval(checkUpcomingClasses, 60000);
+            checkUpcomingClasses();
+        };
+
+        // --- AUTH LOGIC (DIPERIKSA ULANG & KONTROL FORM DATA TERKUAT) ---
+
+        const handleLogin = (e) => {
+            e.preventDefault();
+            
+            // Menggunakan new FormData untuk pengambilan data input dari form.
+            // Ini adalah metode paling stabil di Vanilla JS untuk memastikan data terambil dengan benar.
+            const formData = new FormData(e.target);
+            const username = formData.get('username');
+            const password = formData.get('password');
+
+            const foundUser = users.find(
+                u => u.username === username && u.password === password
+            );
+
+            if (foundUser) {
+                // Berhasil login
+                setState({ currentUser: foundUser, loginError: '' });
+                showAlert({ message: `Selamat datang, ${foundUser.name}!`, type: 'success' });
+            } else {
+                // Gagal login
+                setState({ loginError: 'Username atau password salah!' });
+                showAlert({ message: 'Username atau password salah!', type: 'error' });
+            }
+        };
+
+        const handleLogout = () => {
+            setState({ 
+                currentUser: null, 
+                activeTab: 'schedule',
+                showForm: false
+            });
+            showAlert({ message: 'Anda telah keluar.', type: 'info' });
+        };
+
+        // --- SCHEDULE CRUD LOGIC ---
+        const handleScheduleSubmit = (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const newFormData = {
+                subject: form.subject.value,
+                day: form.day.value,
+                startTime: form.startTime.value,
+                endTime: form.endTime.value,
+                room: form.room.value,
+                lecturer: form.lecturer.value,
+                type: form.type.value,
+            };
+
+            let newSchedules = [...schedules];
+            let message = '';
+            
+            if (isEditing) {
+                newSchedules = newSchedules.map(item => item.id === editId ? { id: editId, ...newFormData } : item);
+                message = 'Jadwal berhasil diperbarui!';
+            } else {
+                newSchedules.push({ id: Date.now(), ...newFormData });
+                message = 'Jadwal berhasil ditambahkan!';
+            }
+            
+            setState({
+                schedules: newSchedules,
+                formData: { subject: '', day: newFormData.day, startTime: '', endTime: '', room: '', lecturer: '', type: 'Teori' },
+                isEditing: false,
+                editId: null,
+                showForm: false,
+                activeDay: newFormData.day,
+            });
+            saveState();
+            showAlert({ show: true, message, type: 'success' });
+        };
+
+        const handleDeleteSchedule = (id) => {
+            showConfirm({
+                message: 'Apakah Anda yakin ingin menghapus jadwal ini?',
+                onConfirm: () => {
+                    const newSchedules = schedules.filter(item => item.id !== id);
+                    setState({ schedules: newSchedules });
+                    saveState();
+                    showAlert({ message: 'Jadwal berhasil dihapus.', type: 'info' });
+                }
+            });
+        };
+
+        const handleEditSchedule = (item) => {
+            setState({
+                formData: item,
+                editId: item.id,
+                isEditing: true,
+                showForm: true,
+                activeDay: item.day,
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        // --- PICKET LOGIC ---
+        const handleEditPicket = (day, currentStudents) => {
+            if (currentUser?.role !== 'admin') return;
+            setState({
+                editingPicketDay: day,
+                picketInput: currentStudents
+            });
+        };
+
+        const savePicket = () => {
+            const newPickets = pickets.map(p => 
+                p.day === editingPicketDay ? { ...p, students: picketInput } : p
+            );
+            setState({
+                pickets: newPickets,
+                editingPicketDay: null
+            });
+            saveState();
+            showAlert({ message: `Jadwal piket ${editingPicketDay} berhasil disimpan!`, type: 'success' });
+        };
+
+        // --- USER MANAGEMENT LOGIC ---
+        const handleAddUser = (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const newUserData = {
+                name: form.name.value,
+                username: form.username.value,
+                password: form.password.value,
+                role: form.role.value,
+            };
+
+            if (!newUserData.username || !newUserData.password || !newUserData.name) {
+                showAlert({ message: 'Semua kolom wajib diisi!', type: 'error' });
+                return;
+            }
+            
+            if (users.some(u => u.username === newUserData.username)) {
+                showAlert({ message: 'Username sudah digunakan!', type: 'error' });
+                return;
+            }
+
+            const newUsers = [...users, { id: Date.now(), ...newUserData }];
+            setState({ 
+                users: newUsers,
+                userFormData: { username: '', password: '', name: '', role: 'user' }
+            });
+            saveState();
+            showAlert({ message: 'User berhasil ditambahkan', type: 'success' });
+        };
+
+        const handleDeleteUser = (id) => {
+            if (id === currentUser.id) {
+                showAlert({ message: "Tidak bisa menghapus akun Anda sendiri!", type: 'error' });
+                return;
+            }
+            showConfirm({
+                message: 'Apakah Anda yakin ingin menghapus user ini?',
+                onConfirm: () => {
+                    const newUsers = users.filter(u => u.id !== id);
+                    setState({ users: newUsers });
+                    saveState();
+                    showAlert({ message: 'User berhasil dihapus.', type: 'info' });
+                }
+            });
+        };
+
+        // --- NOTIFICATION & TIME LOGIC ---
+        const checkUpcomingClasses = () => {
+            const now = new Date();
+            const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const currentDayName = dayMap[now.getDay()];
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeVal = currentHour * 60 + currentMinute;
+
+            const upcoming = schedules.filter(s => {
+                if (s.day !== currentDayName) return false;
+                const [h, m] = s.startTime.split(':').map(Number);
+                const scheduleTimeVal = h * 60 + m;
+                // Check for classes starting within the next 60 minutes
+                return scheduleTimeVal > currentTimeVal && scheduleTimeVal <= currentTimeVal + 60;
+            });
+
+            const newNotifications = upcoming.map(u => ({
+                id: u.id,
+                message: `Kelas ${u.subject} akan dimulai pukul ${u.startTime} di ${u.room}`,
+                type: 'warning'
+            }));
+            
+            // Only update state if notifications changed to avoid unnecessary re-renders
+            if (JSON.stringify(notifications) !== JSON.stringify(newNotifications)) {
+                setState({ notifications: newNotifications });
+            }
+        };
+
+        // --- MODAL & ALERT HANDLERS ---
+        const showAlert = ({ message, type }) => {
+            setState({ alertMessage: { show: true, message, type } });
+            setTimeout(() => setState({ alertMessage: { show: false, message: '', type: 'info' } }), 4000);
+        };
+
+        const showConfirm = ({ message, onConfirm }) => {
+            setState({ confirmModal: { show: true, message, onConfirm } });
+        };
+
+        const closeConfirm = () => {
+            setState({ confirmModal: { show: false, message: '', onConfirm: () => {} } });
+        };
+
+        // --- RENDERING COMPONENTS (DOM Manipulation) ---
+
+        /** Renders Custom Alert Message */
+        const renderAlert = () => {
+            const { show, message, type } = alertMessage;
+            if (!show) return '';
+            
+            const theme = getThemeClasses();
+            const iconMap = {
+                success: { icon: 'CheckCircle', color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900/50', border: 'border-green-500' },
+                error: { icon: 'Ban', color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900/50', border: 'border-red-500' },
+                info: { icon: 'AlertCircle', color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/50', border: 'border-blue-500' },
+                warning: { icon: 'AlertCircle', color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/50', border: 'border-yellow-500' },
+            };
+            
+            const { icon, color, bg, border } = iconMap[type] || iconMap.info;
+
+            return `
+                <div class="fixed inset-0 z-[100] flex items-start justify-center p-4 pointer-events-none">
+                    <div class="mt-16 w-full max-w-sm p-4 rounded-xl shadow-2xl border-l-4 ${bg} ${border} transition-all duration-300 transform scale-100 pointer-events-auto">
+                        <div class="flex items-start">
+                            ${Icon(icon, 'w-6 h-6 mr-3 flex-shrink-0', color)}
+                            <div class="flex-1 text-sm font-medium ${theme.text}">
+                                ${message}
+                            </div>
+                            <button onclick="setState({ alertMessage: { show: false, message: '', type: 'info' } })" 
+                                class="ml-4 p-1 rounded-full transition-colors ${theme.buttonGhost} flex-shrink-0">
+                                ${Icon('X', 'w-4 h-4')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        /** Renders Custom Confirmation Modal */
+        const renderConfirmModal = () => {
+            const { show, message } = confirmModal;
+            if (!show) return '';
+
+            const theme = getThemeClasses();
+
+            return `
+                <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+                    <div class="w-full max-w-sm p-6 rounded-2xl shadow-2xl ${theme.card} border-2">
+                        <div class="text-center">
+                            ${Icon('AlertCircle', 'w-12 h-12 mx-auto mb-4 text-red-500')}
+                            <h3 class="text-xl font-semibold mb-2 ${theme.heading}">Konfirmasi Aksi</h3>
+                            <p class="mb-6 text-sm ${theme.subText}">${message}</p>
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="closeConfirm()" class="py-2 px-4 rounded-xl text-sm font-medium transition ${theme.buttonGhost} border border-transparent hover:border-gray-500">
+                                Batal
+                            </button>
+                            <button onclick="confirmModal.onConfirm(); closeConfirm();" class="py-2 px-4 rounded-xl text-sm font-medium transition ${theme.dangerButton} shadow-lg shadow-red-500/30">
+                                Ya, Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+        
+        // --- VIEW RENDERERS ---
+
+        /** Renders the full Schedule Form */
+        const renderScheduleForm = () => {
+            if (currentUser?.role !== 'admin' || (!showForm && !isEditing)) return '';
+
+            const theme = getThemeClasses();
+
+            const formTitle = isEditing ? 'Edit Jadwal' : 'Tambah Jadwal Baru';
+            const buttonText = isEditing ? 'Simpan Perubahan' : 'Tambahkan Jadwal';
+
+            return `
+                <div class="lg:col-span-3 p-6 rounded-2xl shadow-xl ${theme.card} border mb-6">
+                    <h3 class="text-xl font-semibold mb-6 ${theme.heading} flex items-center gap-2">
+                        ${Icon('Edit2', 'w-5 h-5 text-indigo-500')} ${formTitle}
+                    </h3>
+                    <form id="scheduleForm" onsubmit="handleScheduleSubmit(event)" class="space-y-4">
+                        
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <!-- Subject -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Mata Pelajaran</label>
+                                <input type="text" name="subject" required value="${formData.subject}" 
+                                    onchange="formData.subject = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" placeholder="Contoh: Matematika" />
+                            </div>
+                            <!-- Lecturer -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Guru/Dosen Pengajar</label>
+                                <input type="text" name="lecturer" value="${formData.lecturer}" 
+                                    onchange="formData.lecturer = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" placeholder="Nama Pengajar" />
+                            </div>
+                        </div>
+
+                        <div class="grid sm:grid-cols-3 gap-4">
+                            <!-- Day -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Hari</label>
+                                <select name="day" required onchange="formData.day = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}">
+                                    ${days.map(d => `<option value="${d}" ${formData.day === d ? 'selected' : ''}>${d}</option>`).join('')}
+                                </select>
+                            </div>
+                            <!-- Start Time -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Waktu Mulai</label>
+                                <input type="time" name="startTime" required value="${formData.startTime}" 
+                                    onchange="formData.startTime = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" />
+                            </div>
+                            <!-- End Time -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Waktu Selesai (Opsional)</label>
+                                <input type="time" name="endTime" value="${formData.endTime}" 
+                                    onchange="formData.endTime = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" />
+                            </div>
+                        </div>
+                        
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <!-- Room -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Ruangan/Kelas</label>
+                                <input type="text" name="room" value="${formData.room}" 
+                                    onchange="formData.room = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" placeholder="Contoh: R. A-201" />
+                            </div>
+                            <!-- Type -->
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Tipe Kelas</label>
+                                <select name="type" required onchange="formData.type = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}">
+                                    ${['Teori', 'Praktikum', 'Responsi'].map(t => `<option value="${t}" ${formData.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end space-x-3 pt-4">
+                            <button type="button" onclick="setState({ showForm: false, isEditing: false })" 
+                                class="py-2 px-4 rounded-xl text-sm font-medium transition ${theme.buttonGhost} border border-transparent hover:border-gray-500">
+                                Batal
+                            </button>
+                            <button type="submit" class="flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-medium transition-all shadow-md shadow-indigo-500/30 ${theme.primaryButton}">
+                                ${Icon('Save', 'w-4 h-4')}
+                                ${buttonText}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        };
+
+        /** Renders Schedule List for the active day */
+        const renderScheduleList = () => {
+            const theme = getThemeClasses();
+            const filteredSchedules = schedules
+                .filter(s => s.day === activeDay)
+                .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+            let listItems = '';
+
+            if (filteredSchedules.length === 0) {
+                listItems = `
+                    <div class="p-8 text-center rounded-xl border-2 border-dashed ${theme.card} ${theme.subText}">
+                        ${Icon('Calendar', 'w-8 h-8 mx-auto mb-2 text-indigo-500')}
+                        <p>Tidak ada jadwal untuk hari ${activeDay}.</p>
+                    </div>
+                `;
+            } else {
+                listItems = filteredSchedules.map(item => `
+                    <div key="${item.id}" class="p-4 rounded-xl border flex justify-between items-center ${theme.card} shadow-sm transition-shadow hover:shadow-md">
+                        <div class="flex items-center space-x-4 min-w-0">
+                            <div class="p-2 rounded-lg flex-shrink-0 ${getTypeColor(item.type)} border-l-4">
+                                ${Icon('Clock', 'w-5 h-5')}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold truncate ${theme.heading}">${item.subject}</p>
+                                <p class="text-xs ${theme.subText} flex flex-wrap items-center gap-2 mt-1">
+                                    <span class="py-0.5 px-2 rounded-full text-xs font-medium border ${getTypeColor(item.type)}">${item.type}</span>
+                                    <span class="flex items-center gap-1">${Icon('Clock', 'w-3 h-3')} ${item.startTime} - ${item.endTime || 'Selesai'}</span>
+                                    <span class="flex items-center gap-1">${Icon('MapPin', 'w-3 h-3')} ${item.room || 'Tidak Ada'}</span>
+                                </p>
+                                <p class="text-sm mt-1 flex items-center gap-1 font-medium ${theme.text}">
+                                    ${Icon('User', 'w-4 h-4 text-indigo-500')} ${item.lecturer || 'Guru/Dosen Tidak Ada'}
+                                </p>
+                            </div>
+                        </div>
+                        ${currentUser?.role === 'admin' ? `
+                            <div class="flex-shrink-0 flex space-x-2">
+                                <button
+                                    onclick='handleEditSchedule(${JSON.stringify(item).replace(/'/g, "\\'")})'
+                                    class="p-2 rounded-full transition ${theme.buttonGhost} text-indigo-500"
+                                    title="Edit Jadwal"
+                                >
+                                    ${Icon('Edit2', 'w-4 h-4')}
+                                </button>
+                                <button
+                                    onclick="handleDeleteSchedule(${item.id})"
+                                    class="p-2 rounded-full transition ${theme.buttonGhost} text-red-500"
+                                    title="Hapus Jadwal"
+                                >
+                                    ${Icon('Trash2', 'w-4 h-4')}
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            }
+
+            return `
+                <div class="lg:col-span-3">
+                    <div class="p-6 rounded-2xl shadow-lg ${theme.card} border">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-semibold ${theme.heading}">
+                                Jadwal Pelajaran
+                            </h3>
+                            ${currentUser?.role === 'admin' ? `
+                                <button
+                                    onclick="setState({ showForm: !showForm, isEditing: false, formData: { ...formData, day: activeDay } })"
+                                    class="flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-medium transition-all shadow-md shadow-indigo-500/30 ${theme.primaryButton}"
+                                >
+                                    ${Icon('Plus', 'w-4 h-4')}
+                                    ${showForm ? 'Tutup Form' : 'Tambah Jadwal'}
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        <!-- Day Selector -->
+                        <div class="flex flex-wrap gap-2 mb-6">
+                            ${days.map(day => `
+                                <button
+                                    onclick="setState({ activeDay: '${day}', showForm: false, isEditing: false })"
+                                    class="py-2 px-4 rounded-full text-sm font-medium border transition-all ${
+                                        activeDay === day ? theme.dayActive : theme.dayInactive
+                                    }"
+                                >
+                                    ${day}
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <!-- Schedule Items -->
+                        <div class="space-y-4">
+                            ${listItems}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        /** Renders Schedule Manager Tab */
+        const renderScheduleManager = () => {
+            const formHtml = renderScheduleForm();
+            const listHtml = renderScheduleList();
+
+            return `
+                <div class="grid lg:grid-cols-3 gap-6">
+                    ${formHtml}
+                    ${listHtml}
+                </div>
+            `;
+        };
+
+        /** Renders Picket Manager Tab */
+        const renderPicketManager = () => {
+            const theme = getThemeClasses();
+
+            const picketItems = pickets.map(picket => {
+                const isPicketEditing = editingPicketDay === picket.day;
+                const isAdmin = currentUser?.role === 'admin';
+                
+                let contentHTML = `
+                    <p class="text-sm ${theme.text} break-words">
+                        ${picket.students}
+                    </p>
+                `;
+
+                let actionButtonHTML = '';
+
+                if (isAdmin) {
+                    if (isPicketEditing) {
+                        contentHTML = `
+                            <textarea id="picketInput-${picket.day}" 
+                                onchange="picketInput = this.value"
+                                class="w-full p-2 border rounded-lg mt-1 text-sm ${theme.input}" 
+                                rows="3"
+                                placeholder="Masukkan nama siswa yang piket, pisahkan dengan koma.">${picketInput}</textarea>
+                        `;
+                        actionButtonHTML = `
+                            <button onclick="savePicket()" class="flex items-center gap-1 py-2 px-4 rounded-xl text-sm font-medium transition ${theme.primaryButton}">
+                                ${Icon('Save', 'w-4 h-4')} Simpan
+                            </button>
+                        `;
+                    } else {
+                        actionButtonHTML = `
+                            <button onclick="handleEditPicket('${picket.day}', '${picket.students.replace(/'/g, "\\'")}')" 
+                                class="flex items-center gap-1 py-2 px-4 rounded-xl text-sm font-medium transition ${theme.buttonGhost} text-indigo-500 border border-gray-300 dark:border-gray-700">
+                                ${Icon('Edit2', 'w-4 h-4')} Edit
+                            </button>
+                        `;
+                    }
+                }
+
+                return `
+                    <div class="p-4 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center ${theme.card} shadow-sm">
+                        <div class="flex items-center space-x-4 mb-2 sm:mb-0">
+                            ${Icon('Calendar', 'w-6 h-6 text-indigo-500 flex-shrink-0')}
+                            <div class="min-w-0">
+                                <p class="font-bold ${theme.heading}">${picket.day}</p>
+                                ${contentHTML}
+                            </div>
+                        </div>
+                        ${isAdmin ? actionButtonHTML : ''}
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="p-6 rounded-2xl shadow-lg ${theme.card} border">
+                    <h3 class="text-2xl font-semibold mb-6 ${theme.heading} flex items-center gap-2">
+                        ${Icon('Users', 'w-6 h-6 text-indigo-500')} Jadwal Piket Kelas
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        ${picketItems}
+                    </div>
+                </div>
+            `;
+        };
+
+        /** Renders User Management Tab (Admin Only) */
+        const renderUserManagement = () => {
+            if (currentUser?.role !== 'admin') return '';
+            const theme = getThemeClasses();
+
+            const userListItems = users.map(user => {
+                const isCurrentUser = user.id === currentUser.id;
+                const roleClasses = user.role === 'admin' ? 
+                    'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' : 
+                    'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
+                
+                return `
+                    <div key="${user.id}" class="p-4 rounded-xl border flex justify-between items-center ${theme.card} shadow-sm">
+                        <div class="flex items-center space-x-4">
+                            ${Icon('User', 'w-5 h-5 text-gray-500 flex-shrink-0')}
+                            <div class="min-w-0">
+                                <p class="font-semibold ${theme.heading} truncate">${user.name} ${isCurrentUser ? '(Anda)' : ''}</p>
+                                <p class="text-xs ${theme.subText} flex items-center gap-2">
+                                    <span class="font-mono">@${user.username}</span>
+                                    <span class="py-0.5 px-2 rounded-full text-xs font-medium capitalize ${roleClasses}">${user.role}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onclick="handleDeleteUser(${user.id})"
+                            class="p-2 rounded-full transition ${theme.buttonGhost} text-red-500"
+                            title="Hapus User"
+                            ${isCurrentUser ? 'disabled' : ''}
+                        >
+                            ${Icon('Trash2', 'w-4 h-4')}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="grid lg:grid-cols-3 gap-6">
+                    
+                    <!-- Add User Form -->
+                    <div class="lg:col-span-1 p-6 rounded-2xl shadow-xl ${theme.card} border">
+                        <h3 class="text-xl font-semibold mb-6 ${theme.heading} flex items-center gap-2">
+                            ${Icon('UserPlus', 'w-5 h-5 text-indigo-500')} Tambah User Baru
+                        </h3>
+                        <form id="addUserForm" onsubmit="handleAddUser(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Nama Lengkap</label>
+                                <input type="text" name="name" required value="${userFormData.name}" 
+                                    onchange="userFormData.name = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" placeholder="Contoh: Rina Sari" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Username</label>
+                                <input type="text" name="username" required value="${userFormData.username}" 
+                                    onchange="userFormData.username = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" placeholder="Username unik" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Password</label>
+                                <input type="password" name="password" required value="${userFormData.password}" 
+                                    onchange="userFormData.password = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}" placeholder="Password" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Role</label>
+                                <select name="role" required onchange="userFormData.role = this.value"
+                                    class="w-full p-2 border rounded-xl ${theme.input}">
+                                    <option value="user" ${userFormData.role === 'user' ? 'selected' : ''}>User (Siswa)</option>
+                                    <option value="admin" ${userFormData.role === 'admin' ? 'selected' : ''}>Admin (Guru/Operator)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 rounded-xl text-sm font-medium transition-all shadow-md shadow-indigo-500/30 ${theme.primaryButton}">
+                                Tambah User
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- User List -->
+                    <div class="lg:col-span-2 p-6 rounded-2xl shadow-lg ${theme.card} border">
+                        <h3 class="text-2xl font-semibold mb-6 ${theme.heading}">
+                            Daftar User (${users.length})
+                        </h3>
+                        <div class="space-y-3">
+                            ${userListItems}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        /** Renders the full Dashboard View */
+        const renderDashboard = () => {
+            const theme = getThemeClasses();
+
+            const tabButtons = `
+                <nav class="flex space-x-4 overflow-x-auto whitespace-nowrap">
+                    <button onclick="setState({ activeTab: 'schedule', showForm: false, isEditing: false })"
+                        class="flex items-center px-4 py-3 border-b-2 text-sm font-medium transition-colors duration-200 ${
+                            activeTab === 'schedule' ? theme.tabActive : theme.tabInactive
+                        }">
+                        ${Icon('BookOpen', 'w-5 h-5 mr-2')} Jadwal Pelajaran
+                    </button>
+                    <button onclick="setState({ activeTab: 'picket', showForm: false, isEditing: false })"
+                        class="flex items-center px-4 py-3 border-b-2 text-sm font-medium transition-colors duration-200 ${
+                            activeTab === 'picket' ? theme.tabActive : theme.tabInactive
+                        }">
+                        ${Icon('Users', 'w-5 h-5 mr-2')} Jadwal Piket
+                    </button>
+                    ${currentUser?.role === 'admin' ? `
+                        <button onclick="setState({ activeTab: 'users', showForm: false, isEditing: false })"
+                            class="flex items-center px-4 py-3 border-b-2 text-sm font-medium transition-colors duration-200 ${
+                                activeTab === 'users' ? theme.tabActive : theme.tabInactive
+                            }">
+                            ${Icon('UserPlus', 'w-5 h-5 mr-2')} Manajemen User
+                        </button>
+                    ` : ''}
+                </nav>
+            `;
+
+            let tabContent = '';
+            if (activeTab === 'schedule') {
+                tabContent = renderScheduleManager();
+            } else if (activeTab === 'picket') {
+                tabContent = renderPicketManager();
+            } else if (activeTab === 'users' && currentUser?.role === 'admin') {
+                tabContent = renderUserManagement();
+            }
+
+            // Notifications dropdown
+            const notificationDropdown = `
+                ${notifications.length > 0 ? `
+                    <div class="relative">
+                        <button 
+                            onclick="setState({ showNotif: !showNotif })" 
+                            class="p-2 rounded-full relative transition-colors ${theme.buttonGhost}"
+                        >
+                            ${Icon('Bell', 'w-5 h-5')}
+                            <span class="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-white dark:ring-gray-800 bg-red-500"></span>
+                        </button>
+                        ${showNotif ? `
+                            <div class="absolute right-0 mt-2 w-72 rounded-xl shadow-lg ${theme.card} border z-50 p-3">
+                                <h4 class="font-semibold mb-2 text-sm ${theme.heading}">Notifikasi (${notifications.length})</h4>
+                                <div class="space-y-2">
+                                    ${notifications.map((n) => `
+                                        <div key="${n.id}" class="p-3 bg-indigo-50 rounded-lg text-xs dark:bg-indigo-900/30">
+                                            <p class="font-medium text-indigo-700 dark:text-indigo-300">${n.message}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            `;
+
+            return `
+                <!-- HEADER & NAVIGATION -->
+                <header class="sticky top-0 z-40 p-4 ${theme.header} header">
+                    <div class="max-w-7xl mx-auto flex items-center justify-between">
+                        <h2 class="text-xl font-bold flex items-center gap-2 ${theme.heading}">
+                            ${Icon('GraduationCap', 'w-6 h-6 text-indigo-500')} ClassPilot
+                        </h2>
+
+                        <div class="flex items-center space-x-4">
+                            <!-- Notifications -->
+                            ${notificationDropdown}
+                            
+                            <!-- Theme Toggle -->
+                            <button 
+                                onclick="setState({ isDarkMode: !isDarkMode }); saveState();" 
+                                class="p-2 rounded-full transition-colors ${theme.buttonGhost}"
+                            >
+                                ${isDarkMode ? Icon('Sun', 'w-5 h-5 text-yellow-500') : Icon('Moon', 'w-5 h-5')}
+                            </button>
+
+                            <!-- User Menu -->
+                            <div class="p-2 rounded-xl flex items-center space-x-2 border text-sm ${theme.card}">
+                                ${Icon('User', 'w-4 h-4 text-indigo-500')}
+                                <span class="font-medium hidden sm:inline ${theme.heading}">${currentUser.name}</span>
+                                <button onclick="handleLogout()" class="p-1 rounded-full text-red-500 hover:bg-red-500/10">
+                                    ${Icon('LogOut', 'w-4 h-4')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- MAIN CONTENT & TABS -->
+                <main class="max-w-7xl mx-auto p-4 sm:p-6">
+                    <!-- Tab Selector -->
+                    <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                        ${tabButtons}
+                    </div>
+
+                    <!-- Tab Content -->
+                    ${tabContent}
+                </main>
+            `;
+        };
+
+        /** Renders the Login Page View */
+        const renderLoginPage = () => {
+            const theme = getThemeClasses();
+
+            return `
+                <div class="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 ${theme.bg}">
+                    <div class="p-8 rounded-2xl shadow-xl w-full max-w-md border transition-colors duration-300 ${theme.card} relative">
+                        <!-- Theme Toggle on Login Page -->
+                        <div class="absolute top-4 right-4">
+                            <button 
+                                onclick="setState({ isDarkMode: !isDarkMode }); saveState();" 
+                                class="p-2 rounded-full transition-colors ${theme.buttonGhost}"
+                            >
+                                ${isDarkMode ? Icon('Sun', 'w-5 h-5 text-yellow-500') : Icon('Moon', 'w-5 h-5 text-gray-700')}
+                            </button>
+                        </div>
+
+                        <div class="text-center mb-8">
+                            <div class="bg-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3">
+                                ${Icon('Calendar', 'w-8 h-8 text-white')}
+                            </div>
+                            <h1 class="text-2xl font-bold ${theme.heading}">ClassPilot Login</h1>
+                            <p class="text-sm ${theme.subText}">E-Schedule & Picket Manager</p>
+                        </div>
+
+                        <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                            ${loginError ? `
+                                <div class="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2 dark:bg-red-900/30 dark:text-red-300">
+                                    ${Icon('AlertCircle', 'w-4 h-4')} ${loginError}
+                                </div>
+                            ` : ''}
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Username</label>
+                                <div class="relative">
+                                    ${Icon('User', 'w-5 h-5 text-gray-400 absolute left-3 top-3')}
+                                    <!-- Input harus memiliki atribut name="username" -->
+                                    <input type="text" name="username" 
+                                        class="w-full pl-10 p-3 border rounded-xl outline-none transition-colors ${theme.input} focus:border-indigo-500" placeholder="admin123 / user123" required />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 ${theme.subText}">Password</label>
+                                <div class="relative">
+                                    ${Icon('Lock', 'w-5 h-5 text-gray-400 absolute left-3 top-3')}
+                                    <!-- Input harus memiliki atribut name="password" -->
+                                    <input type="password" name="password" 
+                                        class="w-full pl-10 p-3 border rounded-xl outline-none transition-colors ${theme.input} focus:border-indigo-500" placeholder="admin123 / user123" required />
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full py-3 rounded-xl font-semibold shadow-md shadow-indigo-500/30 transition-all ${theme.primaryButton}">
+                                Masuk ke ClassPilot
+                            </button>
+                        </form>
+
+                        <p class="mt-6 text-center text-xs ${theme.subText}">
+                            Demo Admin: admin123/admin123 | Demo User: user123/user123
+                        </p>
+                    </div>
+                </div>
+            `;
+        };
+
+        /** The main render function, called after every state change */
+        const render = () => {
+            const root = document.getElementById('appRoot');
+            const body = document.getElementById('appBody');
+            
+            // 1. Apply Theme
+            body.classList.toggle('dark', isDarkMode);
+            const theme = getThemeClasses();
+            body.className = `font-sans min-h-screen ${theme.bg} ${theme.text} transition-colors duration-300`;
+
+            // 2. Render Main Content (Login or Dashboard)
+            if (!currentUser) {
+                root.innerHTML = renderLoginPage();
+            } else {
+                root.innerHTML = renderDashboard();
+            }
+
+            // 3. Render Modals/Alerts outside the main content flow
+            const alertHtml = renderAlert();
+            const confirmHtml = renderConfirmModal();
+
+            // Find or create overlay container
+            let overlay = document.getElementById('appOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'appOverlay';
+                document.body.appendChild(overlay);
+            }
+
+            overlay.innerHTML = alertHtml + confirmHtml;
+        };
+        
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            loadState();
+            render();
+            console.log("ClassPilot loaded in Vanilla JS mode.");
+        };
+
+    </script>
+</body>
+</html>
